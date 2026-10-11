@@ -44,8 +44,12 @@ import de.habits.app.ui.HabitEditor
 import de.habits.app.ui.HabitsScreen
 import de.habits.app.ui.HabitsTheme
 import de.habits.app.ui.ProgressScreen
+import de.habits.app.ui.ReviewScreen
+import de.habits.app.ui.SettingsScreen
+import de.habits.core.ReviewKind
 import de.habits.app.ui.TodayScreen
 import de.habits.core.achievementProgress
+import de.habits.core.avatarPartAt
 import de.habits.core.levelFor
 
 class MainActivity : ComponentActivity() {
@@ -82,6 +86,8 @@ private fun App(repo: Repository) {
     var tab by rememberSaveable { mutableStateOf(Tab.TODAY) }
     var detailId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editorId by rememberSaveable { mutableStateOf(NO_EDITOR) }
+    var reviewKind by rememberSaveable { mutableStateOf<ReviewKind?>(null) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     RequestNotificationPermission()
@@ -99,6 +105,18 @@ private fun App(repo: Repository) {
             },
             onCancel = { editorId = NO_EDITOR },
         )
+        return
+    }
+
+    if (settingsOpen) {
+        BackHandler { settingsOpen = false }
+        SettingsScreen(state.bodyShape, levelFor(state.overview.totals.xp).number, onBodyShape = repo::setBodyShape, onBack = { settingsOpen = false })
+        return
+    }
+
+    reviewKind?.let { kind ->
+        BackHandler { reviewKind = null }
+        ReviewScreen(state, kind, onBack = { reviewKind = null })
         return
     }
 
@@ -148,7 +166,7 @@ private fun App(repo: Repository) {
                     onCreate = { editorId = NEW_HABIT },
                 )
                 Tab.HABITS -> HabitsScreen(state, onOpen = { detailId = it })
-                Tab.PROGRESS -> ProgressScreen(state)
+                Tab.PROGRESS -> ProgressScreen(state, onOpenReview = { reviewKind = it }, onOpenSettings = { settingsOpen = true })
             }
         }
     }
@@ -168,7 +186,7 @@ private fun Celebrations(state: AppState, snackbar: SnackbarHostState) {
     LaunchedEffect(unlocked.map { it.id }.toSet(), level.number, perfectToday) {
         val messages = buildList {
             if (perfectToday && !knownPerfect) add("🎉 Alles für heute erledigt!")
-            if (level.number > knownLevel) add("⬆️ Level ${level.number}: ${level.title}")
+            if (level.number > knownLevel) add("⬆️ Level ${level.number}: ${level.title}" + (avatarPartAt(level.number)?.let { " – neu: ${it.label}" } ?: ""))
             knownIds?.let { old -> unlocked.filter { it.id !in old }.forEach { add("${it.emoji} Erfolg: ${it.title}") } }
         }
         knownIds = unlocked.map { it.id }.toSet()

@@ -167,20 +167,6 @@ fun RateBars(values: List<Float?>, labels: List<String>, color: Color, modifier:
     }
 }
 
-/** Tiny bars for table rows. */
-@Composable
-fun MiniBars(values: List<Float?>, color: Color, modifier: Modifier = Modifier) {
-    Row(modifier.height(20.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-        values.forEach { v ->
-            Box(
-                Modifier
-                    .size(width = 5.dp, height = (20 * maxOf(v ?: 0f, 0.1f)).dp)
-                    .background(if (v == null) MaterialTheme.colorScheme.surfaceVariant else color, RoundedCornerShape(1.dp))
-            )
-        }
-    }
-}
-
 /** Enter or correct the amount of a habit on one day. */
 @Composable
 fun AmountDialog(history: HabitHistory, date: LocalDate, onDismiss: () -> Unit, onSave: (Int) -> Unit) {

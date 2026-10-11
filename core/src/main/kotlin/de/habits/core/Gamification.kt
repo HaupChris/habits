@@ -20,10 +20,22 @@ class Overview(val histories: List<HabitHistory>, val today: LocalDate) {
     /** All due day-habits done (a quit habit counts as done today unless it already slipped). */
     fun isPerfectDay(date: LocalDate) = dayScore(date).let { (done, due) -> due > 0 && done == due }
 
-    val totals: Totals by lazy { computeTotals() }
+    val totals: Totals get() = tally.first
 
-    private fun computeTotals(): Totals {
+    /** XP per day: a success counts on the day its period ends, bonuses on the day they are reached. */
+    val xpByDay: Map<LocalDate, Int> get() = tally.second
+
+    fun xpBetween(from: LocalDate, to: LocalDate) = xpByDay.entries.sumOf { (d, xp) -> if (d in from..to) xp else 0 }
+
+    private val tally: Pair<Totals, Map<LocalDate, Int>> by lazy { computeTotals() }
+
+    private fun computeTotals(): Pair<Totals, Map<LocalDate, Int>> {
         var xp = 0
+        val earned = HashMap<LocalDate, Int>()
+        fun earn(day: LocalDate, amount: Int) {
+            xp += amount
+            earned.merge(day, amount, Int::plus)
+        }
         var successes = 0
         var longest = 0
         var currentBest = 0
@@ -36,25 +48,24 @@ class Overview(val histories: List<HabitHistory>, val today: LocalDate) {
                 if (p.outcome == Outcome.SUCCESS) {
                     successes++
                     val bonus = minOf(counter.run - 1, Xp.MAX_STREAK_BONUS)
-                    xp += if (p.weekly) Xp.WEEK + bonus * Xp.WEEK_STREAK_FACTOR else Xp.DAY + bonus
+                    earn(p.end, if (p.weekly) Xp.WEEK + bonus * Xp.WEEK_STREAK_FACTOR else Xp.DAY + bonus)
                 }
             }
             longest = maxOf(longest, counter.longestDays)
             if (h.habit.isRunning(today)) currentBest = maxOf(currentBest, counter.runDays)
-            h.challengeStatus?.let { if (it.finished && it.passed) { challenges++; xp += Xp.CHALLENGE } }
-            h.consolidatedOn?.let { consolidated++; xp += Xp.CONSOLIDATED }
+            h.challengeStatus?.let { if (it.finished && it.passed) { challenges++; earn(h.habit.endDate ?: today, Xp.CHALLENGE) } }
+            h.consolidatedOn?.let { consolidated++; earn(it, Xp.CONSOLIDATED) }
         }
         val start = histories.minOfOrNull { it.habit.startDate }
         var perfect = 0
         if (start != null) {
             var d: LocalDate = start
             while (!d.isAfter(today)) {
-                if (isPerfectDay(d)) perfect++
+                if (isPerfectDay(d)) { perfect++; earn(d, Xp.PERFECT_DAY) }
                 d = d.plusDays(1)
             }
         }
-        xp += perfect * Xp.PERFECT_DAY
-        return Totals(xp, successes, perfect, longest, currentBest, challenges, consolidated)
+        return Totals(xp, successes, perfect, longest, currentBest, challenges, consolidated) to earned
     }
 }
 
@@ -145,5 +156,3 @@ fun Totals.achievementProgress(): List<AchievementProgress> = achievements.map {
 fun Totals.nextGoals(count: Int = 3): List<AchievementProgress> =
     achievementProgress().filterNot { it.unlocked }.sortedByDescending { it.progress }.take(count)
 
-/** Per-habit streak milestones (in days). */
-val streakMilestones = listOf(7, 21, 66, 100, 365)

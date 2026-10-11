@@ -63,6 +63,7 @@ fun TodayScreen(
             }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Avatar(level.number, state.bodyShape, Modifier.height(56.dp), animate = false)
                 Text("Lv ${level.number}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 LinearProgress(level.progress, Modifier.weight(1f))
                 Text(level.title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

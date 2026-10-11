@@ -167,4 +167,81 @@ class CoreTest {
         assertEquals(2, levelFor(100).number)
         assertEquals(3, levelFor(250).number)
     }
+
+    @Test
+    fun `avatar changes with every level up to the last part`() {
+        assertEquals(setOf(AvatarPart.STICK), avatarParts(1))
+        (1..lastPartLevel).forEach { assertTrue(avatarPartAt(it) != null, "no part at level $it") }
+        assertEquals(45, lastPartLevel)
+        assertEquals(AvatarPart.AURA, avatarPartAt(15))
+        assertNull(avatarPartAt(46))
+        assertNull(nextAvatarPart(45))
+    }
+
+    @Test
+    fun `avatar phases`() {
+        assertEquals(AvatarPhase.HUMAN, avatarPhase(14))
+        assertEquals(AvatarPhase.MOSQUITO, avatarPhase(15))
+        assertEquals(AvatarPhase.MOSQUITO, avatarPhase(29))
+        assertEquals(AvatarPhase.GOOSE, avatarPhase(30))
+        assertEquals(AvatarPhase.GOOSE, avatarPhase(80))
+    }
+
+    @Test
+    fun `avatar keeps getting sparkles after the last part`() {
+        assertEquals(0, avatarSparkles(45))
+        assertEquals(1, avatarSparkles(46))
+    }
+
+    @Test
+    fun `every level changes the avatar sprite`() {
+        BodyShape.entries.forEach { shape ->
+            val sprites = (1..lastPartLevel).map { avatarSprite(it, shape).argb.toList() }
+            sprites.zipWithNext().forEachIndexed { i, (a, b) -> assertTrue(a != b, "$shape: level ${i + 2} looks like level ${i + 1}") }
+        }
+    }
+
+    @Test
+    fun `avatar body shapes look different once the body exists`() {
+        listOf(8, 20, 40).forEach { lv -> assertEquals(3, BodyShape.entries.map { avatarSprite(lv, it).argb.toList() }.toSet().size) }
+        assertEquals(1, BodyShape.entries.map { avatarSprite(2, it).argb.toList() }.toSet().size)
+    }
+
+    @Test
+    fun `xp per day adds up to the total`() {
+        val a = HabitHistory(habit(), days(0, 1, 2, 3, 7, 8), today = mon.plusDays(10))
+        val o = Overview(listOf(a), mon.plusDays(10))
+        assertEquals(o.totals.xp, o.xpByDay.values.sum())
+        assertEquals(o.totals.xp, o.xpBetween(mon, mon.plusDays(10)))
+    }
+
+    @Test
+    fun `weekly review compares with the week before`() {
+        // Week 1: 2 of 7 days, week 2: 6 of 7 days; review taken on the Monday after.
+        val h = HabitHistory(habit(), days(0, 1, 7, 8, 9, 10, 11, 12), today = mon.plusDays(14))
+        val o = Overview(listOf(h), mon.plusDays(14))
+        val r = o.review(ReviewKind.WEEK, mon.plusDays(7))
+        assertEquals(mon.plusDays(7)..mon.plusDays(13), r.range)
+        assertTrue(r.finished)
+        assertEquals(6, r.done)
+        assertEquals(7, r.decided)
+        assertEquals(6f / 7, r.rate!!, 0.001f)
+        assertEquals(2f / 7, r.previousRate!!, 0.001f)
+        assertEquals(4f / 7, r.change!!, 0.001f)
+        assertEquals(6, r.perfectDays)
+        assertEquals(o.xpBetween(mon.plusDays(7), mon.plusDays(13)), r.xp)
+        assertEquals(8, r.trend.size)
+        assertEquals(r.rate, r.trend.last())
+        assertFalse(o.review(ReviewKind.WEEK, mon.plusDays(14)).finished)
+    }
+
+    @Test
+    fun `monthly review covers the calendar month`() {
+        val h = HabitHistory(habit(), days(0, 9), today = mon.plusDays(20))
+        val r = Overview(listOf(h), mon.plusDays(20)).review(ReviewKind.MONTH, mon)
+        assertEquals(LocalDate.of(2026, 9, 1)..LocalDate.of(2026, 9, 30), r.range)
+        assertEquals(2f / 10, r.rate!!, 0.001f) // Sep 21–30 are decided, Oct isn't part of it
+        assertNull(r.previousRate)
+        assertEquals(6, r.trend.size)
+    }
 }

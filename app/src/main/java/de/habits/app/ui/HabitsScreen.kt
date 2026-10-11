@@ -77,11 +77,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.section(title: String
 @Composable
 private fun HabitRow(h: HabitHistory, onClick: () -> Unit) {
     val habit = h.habit
-    val details = buildList {
-        add(scheduleText(habit))
-        targetText(habit).takeIf { it.isNotEmpty() }?.let(::add)
-        h.challengeStatus?.let { add(if (it.finished) (if (it.passed) "Challenge geschafft 🏆" else "Challenge beendet") else "Challenge bis ${habit.endDate!!.format(shortDate)}") }
-    }.joinToString(" · ")
+    val details = scheduleText(habit) + if (h.challengeStatus?.finished == false) " · Challenge" else ""
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -6,8 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,13 +23,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,17 +53,14 @@ import de.habits.core.HabitHistory
 import de.habits.core.Lifecycle
 import de.habits.core.Measure
 import de.habits.core.Outcome
-import de.habits.core.streakMilestones
-import de.habits.core.weekStart
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.temporal.IsoFields
 
 private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", GERMAN)
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitDetailScreen(
     history: HabitHistory,
@@ -79,13 +76,26 @@ fun HabitDetailScreen(
     val color = habitColor(habit.color)
     var editDate by remember { mutableStateOf<LocalDate?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(habit.name, maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") } },
-                actions = { IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Bearbeiten") } },
+                actions = {
+                    IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, "Bearbeiten") }
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mehr") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            if (habit.lifecycle(today) == Lifecycle.ACTIVE || habit.lifecycle(today) == Lifecycle.PAUSED) {
+                                DropdownMenuItem(text = { Text(if (habit.isPaused(today)) "Fortsetzen" else "Pausieren") }, onClick = { menu = false; onPauseToggle() })
+                            }
+                            DropdownMenuItem(text = { Text(if (habit.archived) "Wiederherstellen" else "Archivieren") }, onClick = { menu = false; onArchiveToggle() })
+                            DropdownMenuItem(text = { Text("Löschen", color = Status.fail) }, onClick = { menu = false; confirmDelete = true })
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -94,7 +104,7 @@ fun HabitDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                HabitAvatar(habit, 56.dp)
+                HabitAvatar(habit, 48.dp)
                 Column {
                     Text(listOf(scheduleText(habit), targetText(habit)).filter { it.isNotEmpty() }.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
                     Text(
@@ -102,7 +112,7 @@ fun HabitDetailScreen(
                             Lifecycle.PAUSED -> " · pausiert"
                             Lifecycle.ARCHIVED -> " · archiviert"
                             else -> ""
-                        },
+                        } + (if (history.consolidatedOn != null) " · gefestigt" else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -115,77 +125,33 @@ fun HabitDetailScreen(
                 Stat(percent(history.rate(today.minusDays(29), today)), "Quote 30 Tage")
             }
             if (history.streak.atRisk) {
-                Text("⚠ Letzte Periode verpasst – nicht zweimal hintereinander auslassen.", style = MaterialTheme.typography.bodySmall, color = Status.fail)
+                Text("Letzte Periode verpasst – nicht zweimal hintereinander auslassen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            history.challengeStatus?.let { c ->
-                HorizontalDivider()
-                SectionTitle("Challenge")
-                val elapsed = c.succeeded + c.failed
-                LinearProgress(if (c.total == 0) 0f else elapsed.toFloat() / c.total, color = color)
-                Text("${c.succeeded} von ${c.total} geschafft · Ziel ${c.thresholdPercent} % · bis ${habit.endDate!!.format(shortDate)}", style = MaterialTheme.typography.bodyMedium)
+            // One progress line: the challenge if there is one, otherwise the way to "consolidated".
+            val challenge = history.challengeStatus
+            if (challenge != null) {
+                LinearProgress(if (challenge.total == 0) 0f else (challenge.succeeded + challenge.failed).toFloat() / challenge.total, color = color)
                 Text(
-                    when {
-                        c.finished && c.passed -> "🏆 Geschafft! ${percent(c.rate)} erreicht."
-                        c.finished -> "Nicht geschafft (${percent(c.rate)}). Neuer Versuch?"
-                        c.passed -> "✓ Ziel schon sicher erreicht – weiter so!"
-                        c.reachable -> "Auf Kurs – noch ${c.pending} offen."
-                        else -> "Das Ziel ist nicht mehr erreichbar – zieh trotzdem durch."
+                    "Challenge: ${challenge.succeeded}/${challenge.total} · " + when {
+                        challenge.finished && challenge.passed -> "geschafft 🏆"
+                        challenge.finished -> "nicht geschafft (${percent(challenge.rate)})"
+                        challenge.passed -> "Ziel sicher"
+                        challenge.reachable -> "auf Kurs, ${challenge.pending} offen"
+                        else -> "Ziel nicht mehr erreichbar"
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-
-            HorizontalDivider()
-            SectionTitle("Gewohnheit festigen")
-            val consolidated = history.consolidatedOn
-            if (consolidated != null) {
-                Text("🧱 Gefestigt seit ${consolidated.format(shortDate)}", style = MaterialTheme.typography.bodyMedium)
-            } else {
-                LinearProgress(history.ageDays.toFloat() / CONSOLIDATION_DAYS, color = color)
-                Text(
-                    "Tag ${history.ageDays} von $CONSOLIDATION_DAYS · gefestigt bei ≥ 80 % in den letzten $CONSOLIDATION_DAYS Tagen",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                streakMilestones.forEach { m ->
-                    val reached = history.streak.longestDays >= m
-                    AssistChip(onClick = {}, label = { Text(if (reached) "🔥 $m T" else "$m T") }, enabled = reached)
-                }
+            } else if (history.consolidatedOn == null) {
+                LinearProgress(history.ageDays.toFloat() / CONSOLIDATION_DAYS, color = color)
+                Text("Festigen: Tag ${history.ageDays} von $CONSOLIDATION_DAYS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             HorizontalDivider()
             MonthCalendar(history, onDayClick = { date ->
                 if (isSingleCheck(habit, date)) onSetAmount(date, checkToggleValue(history, date)) else editDate = date
             })
-
-            HorizontalDivider()
-            SectionTitle("Letzte 8 Wochen")
-            val weeks = (7 downTo 0).map { today.minusWeeks(it.toLong()).weekStart() }
-            RateBars(
-                values = weeks.map { history.weekRate(it) },
-                labels = weeks.map { "KW${it.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)}" },
-                color = color,
-            )
-            if (habit.measure == Measure.COUNT) {
-                val month = YearMonth.from(today)
-                Text(
-                    "Diese Woche: ${history.sum(today.weekStart(), today)} ${habit.unit} · Diesen Monat: ${history.sum(month.atDay(1), today)} ${habit.unit}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            HorizontalDivider()
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (habit.lifecycle(today) == Lifecycle.ACTIVE || habit.lifecycle(today) == Lifecycle.PAUSED) {
-                    OutlinedButton(onClick = onPauseToggle) { Text(if (habit.isPaused(today)) "Fortsetzen" else "Pausieren") }
-                }
-                OutlinedButton(onClick = onArchiveToggle) { Text(if (habit.archived) "Wiederherstellen" else "Archivieren") }
-                TextButton(onClick = { confirmDelete = true }) { Text("Löschen", color = Status.fail) }
-            }
             Spacer(Modifier.height(24.dp))
         }
     }

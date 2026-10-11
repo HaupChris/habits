@@ -3,6 +3,7 @@ package de.habits.app.data
 import android.content.Context
 import de.habits.app.reminder.Notifications
 import de.habits.app.reminder.ReminderScheduler
+import de.habits.core.BodyShape
 import de.habits.core.Habit
 import de.habits.core.HabitHistory
 import de.habits.core.Overview
@@ -16,6 +17,7 @@ data class AppState(
     val habits: List<Habit>,
     val entries: Map<Long, Map<LocalDate, Int>>,
     val today: LocalDate,
+    val bodyShape: BodyShape = BodyShape.NEUTRAL,
 ) {
     val histories: List<HabitHistory> by lazy { habits.map { HabitHistory(it, entries[it.id].orEmpty(), today) } }
     val overview: Overview by lazy { Overview(histories, today) }
@@ -31,8 +33,18 @@ class Repository private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val db = HabitDatabase(appContext)
 
-    private val _state = MutableStateFlow(AppState(db.loadHabits(), db.loadEntries(), LocalDate.now()))
+    private val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    private val _state = MutableStateFlow(AppState(db.loadHabits(), db.loadEntries(), LocalDate.now(), loadBodyShape()))
     val state: StateFlow<AppState> = _state.asStateFlow()
+
+    private fun loadBodyShape() =
+        BodyShape.entries.firstOrNull { it.name == prefs.getString(KEY_BODY_SHAPE, null) } ?: BodyShape.NEUTRAL
+
+    fun setBodyShape(shape: BodyShape) {
+        prefs.edit().putString(KEY_BODY_SHAPE, shape.name).apply()
+        _state.update { it.copy(bodyShape = shape) }
+    }
 
     fun refreshToday() {
         val today = LocalDate.now()
@@ -72,6 +84,7 @@ class Repository private constructor(context: Context) {
     }
 
     companion object {
+        private const val KEY_BODY_SHAPE = "body_shape"
         @Volatile private var instance: Repository? = null
 
         fun get(context: Context): Repository =

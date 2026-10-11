@@ -12,12 +12,14 @@ Ersetzt die früheren Einzel-Apps (Zahnputz-, Liegestütz-Tracker); beides läss
   - Zieländerungen gelten ab heute; die Vergangenheit wird nach den damaligen Zielen bewertet
 - **Serien** nach „Never miss twice“: eine verpasste Periode wird verziehen, zwei in Folge beenden die Serie
 - **Gefestigt**: ≥ 66 Tage alt und ≥ 80 % erfüllt in den letzten 66 Tagen (Orientierung an Lally et al., 2009)
-- **Gamification**: globales Level/XP über alle Habits, Erfolge (Serien, perfekte Tage, Challenges, gefestigte Habits)
+- **Gamification**: globales Level/XP über alle Habits, Erfolge (Serien, perfekte Tage, Challenges, gefestigte Habits),
+  ein Pixel-Avatar, der sich mit jedem Level verändert (Mensch → Mückenprinzessin → Wrestling-Gans)
 
 ## Oberfläche
 - **Heute**: nur die heute fälligen Habits, Antippen = abhaken / Menge eintragen
-- **Habits**: laufend, pausiert, abgeschlossen, Archiv; Detailseite mit Kalender (nachtragen), Wochenquoten, Challenge-Stand
-- **Fortschritt**: Level, Ø-Quote (Woche/Monat, filterbar nach laufend/alle), Tabelle pro Habit (schwächste zuerst), Aktivitäts-Heatmap, Erfolge
+- **Habits**: laufend, pausiert, abgeschlossen, Archiv; Detailseite mit Kalender (nachtragen) und Challenge- bzw. Festigungs-Stand
+- **Fortschritt**: Avatar und Level, Wochen- und Monatsrückblick (Quote, Vergleich zur Vorperiode, Verlauf, pro Habit), Erfolge
+- **Einstellungen** (Zahnrad auf „Fortschritt“): Körperform des Avatars
 
 ## Aufbau
 - `core/` – reine Kotlin-Domänenlogik (Perioden, Serien, Quoten, Challenges, XP, Erfolge) mit Unit-Tests
