@@ -25,7 +25,9 @@ Ersetzt die früheren Einzel-Apps (Zahnputz-, Liegestütz-Tracker); beides läss
 
 ## APK bauen & installieren
 - **CI**: Jeder Push baut über GitHub Actions ein APK → Actions → Lauf → Artifact `habits-apk`.
-- **Lokal**: `./gradlew :app:assembleRelease` (benötigt Android SDK) oder Android Studio.
+- **Lokal entwickeln**: Projekt in Android Studio öffnen. Die Debug-Variante heißt „Habits (Dev)“ (`de.habits.app.debug`)
+  und läuft neben der Release-App mit eigenen Daten. UI-Vorschauen mit Beispieldaten: `app/src/debug/.../preview/Previews.kt`.
+  Hinweise für Claude Code stehen in `CLAUDE.md`.
 
 ### Stabile Signatur (empfohlen)
 Ohne eigenen Schlüssel wird mit einem wechselnden Debug-Key signiert – ein neues APK lässt sich dann nicht als Update installieren (Deinstallation = Datenverlust). Einmalig einen Schlüssel erzeugen und als Repository-Secrets hinterlegen:

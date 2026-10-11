@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -98,6 +99,7 @@ private fun HabitRow(h: HabitHistory, onClick: () -> Unit) {
 /** Asks for the exact-alarm permission (Android 12+) if any habit has reminders. */
 @Composable
 private fun ExactAlarmHint(state: AppState) {
+    if (LocalInspectionMode.current) return // previews have no AlarmManager
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || state.habits.none { it.reminders.isNotEmpty() }) return
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(ReminderScheduler.canUseExactAlarms(context)) }
