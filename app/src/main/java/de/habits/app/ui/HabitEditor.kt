@@ -92,6 +92,8 @@ fun HabitEditor(initial: Habit?, today: LocalDate, onSave: (Habit) -> Unit, onCa
     var timesPerDay by remember { mutableIntStateOf(plan?.target?.takeIf { initial?.direction == Direction.BUILD && it in 1..MAX_TIMES_PER_DAY } ?: 1) }
     var targetText by remember { mutableStateOf(plan?.target?.takeIf { initial?.measure == Measure.COUNT }?.toString() ?: "10") }
     var unit by remember { mutableStateOf(initial?.unit ?: "") }
+    // New quit habits default to ticking off clean days; existing ones keep their mode.
+    var checkIn by remember { mutableStateOf(plan?.checkIn ?: true) }
     var weekly by remember { mutableStateOf(plan?.schedule is Schedule.PerWeek) }
     var days by remember { mutableStateOf((plan?.schedule as? Schedule.OnDays)?.days ?: DayOfWeek.values().toSet()) }
     var perWeek by remember { mutableIntStateOf((plan?.schedule as? Schedule.PerWeek)?.times ?: 3) }
@@ -117,13 +119,14 @@ fun HabitEditor(initial: Habit?, today: LocalDate, onSave: (Habit) -> Unit, onCa
         else -> 0
     }
     val perWeekRange = if (direction == Direction.BUILD) 1..7 else 0..6
+    val usesCheckIn = direction == Direction.QUIT && measure == Measure.CHECK && checkIn
     val valid = name.isNotBlank() && (weekly || days.isNotEmpty()) && (measure == Measure.CHECK || direction == Direction.QUIT || target > 0)
 
     fun build(): Habit {
         val schedule = if (weekly) Schedule.PerWeek(perWeek.coerceIn(perWeekRange)) else Schedule.OnDays(days)
         val challenge = if (isChallenge) Challenge(startDate.plusDays(durationDays - 1L), threshold) else null
-        val base = initial?.withStartDate(startDate)?.withPlan(maxOf(today, startDate), target, schedule)
-            ?: Habit(0, name, emoji, color, direction, measure, unit, listOf(Plan(startDate, target, schedule)))
+        val base = initial?.withStartDate(startDate)?.withPlan(maxOf(today, startDate), target, schedule, usesCheckIn)
+            ?: Habit(0, name, emoji, color, direction, measure, unit, listOf(Plan(startDate, target, schedule, usesCheckIn)))
         return base.copy(
             name = name.trim(), emoji = emoji.ifBlank { "✅" }, color = color, direction = direction, measure = measure,
             unit = unit.trim(), challenge = challenge, reminders = reminders.sorted(),
@@ -179,6 +182,9 @@ fun HabitEditor(initial: Habit?, today: LocalDate, onSave: (Habit) -> Unit, onCa
                     FilledTonalButton(onClick = { timesPerDay++ }, enabled = timesPerDay < MAX_TIMES_PER_DAY) { Text("+") }
                 }
             }
+            if (measure == Measure.CHECK && direction == Direction.QUIT) {
+                ChoiceRow(listOf("Clean-Tage abhaken" to true, "Ausrutscher eintragen" to false), checkIn) { checkIn = it }
+            }
             if (measure == Measure.COUNT) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
@@ -198,6 +204,8 @@ fun HabitEditor(initial: Habit?, today: LocalDate, onSave: (Habit) -> Unit, onCa
                     direction == Direction.BUILD && measure == Measure.CHECK ->
                         "$timesPerDay Kreise zum Abhaken. Mit $timesPerDay Erinnerungen stehen deren Uhrzeiten unter den Kreisen."
                     direction == Direction.BUILD -> "Erfüllt ab $target ${unit.trim()} am Tag."
+                    measure == Measure.CHECK && checkIn ->
+                        "Hak jeden Tag ab, an dem du clean geblieben bist. Nicht abgehakte Tage zählen als Ausrutscher."
                     measure == Measure.CHECK -> "Erfüllt, solange du keinen Ausrutscher einträgst."
                     else -> "Erfüllt, solange du höchstens $target ${unit.trim()} am Tag einträgst."
                 },

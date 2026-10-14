@@ -36,6 +36,7 @@ object Notifications {
         val streak = h.streak
         val unit = if (streak.weekly) "Wochen" else "Tage"
         val text = when {
+            habit.direction == Direction.QUIT && habit.needsAction(h.today) -> "Heute clean geblieben? Dann hak den Tag ab. 💪"
             habit.direction == Direction.QUIT -> "Bleib dran – heute zählt jede Stunde. 💪"
             streak.atRisk -> "Letztes Mal verpasst – heute nicht auslassen, sonst endet die Serie."
             streak.current > 0 -> "Halte deine Serie von ${streak.current} $unit am Leben 🔥"
@@ -54,7 +55,7 @@ object Notifications {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-        if (habit.direction == Direction.BUILD) {
+        if (habit.needsAction(h.today)) {
             val done = PendingIntent.getBroadcast(
                 context,
                 habit.id.toInt(),
@@ -63,7 +64,7 @@ object Notifications {
                     .putExtra(ReminderReceiver.EXTRA_HABIT, habit.id),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            builder.addAction(0, "✓ Erledigt", done)
+            builder.addAction(0, if (habit.direction == Direction.QUIT) "✓ Heute clean" else "✓ Erledigt", done)
         }
         NotificationManagerCompat.from(context).notify(notificationId(habit.id), builder.build())
     }

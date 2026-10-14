@@ -77,7 +77,7 @@ object ReminderScheduler {
         if (habit.lifecycle(h.today) != Lifecycle.ACTIVE) return false
         val period = h.periodAt(h.today) ?: return false
         if (period.outcome != Outcome.PENDING) return false
-        if (habit.direction == Direction.QUIT) return true
+        if (!habit.needsAction(h.today)) return true // quit habit, nothing logged: an encouraging nudge
         val plan = habit.planAt(h.today)
         val amount = h.amount(h.today)
         if (index != null && habit.measure == Measure.CHECK && habit.reminders.size == plan.target) {

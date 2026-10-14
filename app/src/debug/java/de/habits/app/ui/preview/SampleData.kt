@@ -66,6 +66,16 @@ object SampleData {
 
     val empty = AppState(emptyList(), emptyMap(), today)
 
+    /** All habits that need an action today are done (and no quit habit slipped). */
+    fun allDoneToday(): AppState = state.histories.fold(state) { acc, h ->
+        val habit = h.habit
+        when {
+            h.periodAt(today) == null -> acc
+            habit.direction == Direction.QUIT -> acc.withAmount(habit.id, today, if (habit.needsAction(today)) 1 else 0)
+            else -> acc.withAmount(habit.id, today, maxOf(h.amount(today), habit.planAt(today).target))
+        }
+    }
+
     /** For interactive previews: the state after changing one entry. */
     fun AppState.withAmount(habitId: Long, date: LocalDate, amount: Int): AppState {
         val forHabit = entries[habitId].orEmpty().let { if (amount <= 0) it - date else it + (date to amount) }

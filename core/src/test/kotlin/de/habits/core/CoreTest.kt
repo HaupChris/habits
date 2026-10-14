@@ -70,6 +70,34 @@ class CoreTest {
     }
 
     @Test
+    fun `quit in check-in mode needs clean days ticked off`() {
+        val h = habit(direction = Direction.QUIT).let { it.copy(plans = listOf(it.plans.single().copy(checkIn = true))) }
+        val hist = HabitHistory(h, days(0, 2), today = mon.plusDays(2))
+        assertEquals(listOf(Outcome.SUCCESS, Outcome.FAIL, Outcome.SUCCESS), hist.periods.map { it.outcome })
+        assertEquals(Outcome.PENDING, HabitHistory(h, days(0), today = mon.plusDays(1)).periods.last().outcome)
+        assertTrue(h.needsAction(mon))
+        assertFalse(habit(direction = Direction.QUIT).needsAction(mon))
+    }
+
+    @Test
+    fun `switching to check-in mode keeps earlier days judged by slips`() {
+        val h = habit(direction = Direction.QUIT).withPlan(mon.plusDays(2), 0, Schedule.DAILY, checkIn = true)
+        val hist = HabitHistory(h, days(3), today = mon.plusDays(4))
+        // Mon/Tue: slip mode, nothing logged → clean. Wed: check-in, not ticked → slip. Thu: ticked. Fri: today, open.
+        assertEquals(listOf(Outcome.SUCCESS, Outcome.SUCCESS, Outcome.FAIL, Outcome.SUCCESS, Outcome.PENDING), hist.periods.map { it.outcome })
+    }
+
+    @Test
+    fun `weekly quit in check-in mode only counts past unticked days as slips`() {
+        val h = habit(Schedule.PerWeek(1), direction = Direction.QUIT).let { it.copy(plans = listOf(it.plans.single().copy(checkIn = true))) }
+        val hist = HabitHistory(h, days(0, 1), today = mon.plusDays(2))
+        assertEquals(Outcome.PENDING, hist.periods.single().outcome)
+        assertEquals(0, hist.periods.single().done)
+        val failed = HabitHistory(h, days(0), today = mon.plusDays(3))
+        assertEquals(Outcome.FAIL, failed.periods.single().outcome) // Tue + Wed unticked > 1 allowed
+    }
+
+    @Test
     fun `quit with limit allows up to the limit`() {
         val h = HabitHistory(habit(direction = Direction.QUIT, measure = Measure.COUNT, target = 2), mapOf(mon to 2, mon.plusDays(1) to 3), mon.plusDays(2))
         assertEquals(listOf(Outcome.SUCCESS, Outcome.FAIL, Outcome.PENDING), h.periods.map { it.outcome })

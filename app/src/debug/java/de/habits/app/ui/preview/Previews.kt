@@ -81,6 +81,20 @@ fun TodayEmptyPreview() = PreviewSurface {
     TodayScreen(state = SampleData.empty, onSetAmount = { _, _ -> }, onOpen = {}, onCreate = {})
 }
 
+/** Everything due today ticked off: open list empty, done section collapsed, celebration card visible. */
+@Preview(name = "Heute – alles erledigt", showBackground = true, widthDp = 400, heightDp = 860)
+@Preview(name = "Heute – alles erledigt (dunkel)", showBackground = true, widthDp = 400, heightDp = 860, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun TodayAllDonePreview() = PreviewSurface {
+    var state by remember { mutableStateOf(SampleData.allDoneToday()) }
+    TodayScreen(
+        state = state,
+        onSetAmount = { id, amount -> state = state.withAmount(id, state.today, amount) },
+        onOpen = {},
+        onCreate = {},
+    )
+}
+
 @PhonePreviews
 @Composable
 fun HabitsPreview() = PreviewSurface { HabitsScreen(SampleData.state, onOpen = {}) }

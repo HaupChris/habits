@@ -235,8 +235,8 @@ private fun DayCell(history: HabitHistory, date: LocalDate, color: Color, onClic
     val fill: Color? = when {
         period == null || !editable -> null
         period.weekly -> when {
-            habit.direction == Direction.BUILD && ok -> color.copy(alpha = 0.6f)
-            habit.direction == Direction.QUIT && !ok -> Status.fail.copy(alpha = 0.6f)
+            habit.needsAction(date) && ok -> color.copy(alpha = 0.6f)
+            !habit.needsAction(date) && !ok -> Status.fail.copy(alpha = 0.6f)
             else -> null
         }
         period.outcome == Outcome.SUCCESS -> Status.success

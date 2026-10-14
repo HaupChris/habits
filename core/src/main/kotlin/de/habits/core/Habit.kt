@@ -30,8 +30,10 @@ sealed interface Schedule {
  * being judged by the rules that applied back then.
  *
  * [target]: BUILD → amount needed per day (1 for CHECK). QUIT → maximum allowed per day (0 for CHECK).
+ * [checkIn]: QUIT + CHECK only – instead of logging slips, clean days are ticked off; an unticked past day
+ * counts as a slip. Part of the plan, so switching modes doesn't re-judge earlier days.
  */
-data class Plan(val from: LocalDate, val target: Int, val schedule: Schedule)
+data class Plan(val from: LocalDate, val target: Int, val schedule: Schedule, val checkIn: Boolean = false)
 
 data class Pause(val from: LocalDate, val to: LocalDate?) {
     operator fun contains(date: LocalDate) = !date.isBefore(from) && (to == null || !date.isAfter(to))
@@ -85,18 +87,31 @@ data class Habit(
     /** Running = neither archived nor finished (paused habits are still running). */
     fun isRunning(today: LocalDate) = lifecycle(today).let { it == Lifecycle.ACTIVE || it == Lifecycle.PAUSED }
 
-    /** Whether a day's amount meets the plan: BUILD reaches the target, QUIT stays within the limit. */
-    fun isOk(amount: Int, plan: Plan) = when (direction) {
-        Direction.BUILD -> amount >= plan.target
-        Direction.QUIT -> amount <= plan.target
+    /**
+     * Whether a day's amount meets the plan: BUILD reaches the target, QUIT stays within the limit
+     * (or, in check-in mode, the clean day was ticked off).
+     */
+    fun isOk(amount: Int, plan: Plan) = when {
+        direction == Direction.BUILD -> amount >= plan.target
+        isCheckIn(plan) -> amount >= 1
+        else -> amount <= plan.target
     }
 
-    /** New target/schedule effective from [date]; earlier days keep their plan. */
-    fun withPlan(date: LocalDate, target: Int, schedule: Schedule): Habit {
+    private fun isCheckIn(plan: Plan) = direction == Direction.QUIT && measure == Measure.CHECK && plan.checkIn
+
+    /**
+     * True if success needs an action (BUILD, or QUIT in check-in mode). Otherwise the day is fine until a slip is
+     * logged, so nothing is "open" today.
+     */
+    fun needsAction(date: LocalDate) = direction == Direction.BUILD || isCheckIn(planAt(date))
+
+    /** New target/schedule/mode effective from [date]; earlier days keep their plan. */
+    fun withPlan(date: LocalDate, target: Int, schedule: Schedule, checkIn: Boolean = planAt(date).checkIn): Habit {
         val current = planAt(date)
-        if (current.target == target && current.schedule == schedule) return this
-        if (!date.isAfter(startDate)) return copy(plans = listOf(Plan(startDate, target, schedule)) + plans.drop(1).filter { it.from.isAfter(date) })
-        return copy(plans = plans.filter { it.from.isBefore(date) } + Plan(date, target, schedule))
+        if (current.target == target && current.schedule == schedule && current.checkIn == checkIn) return this
+        val plan = Plan(if (date.isAfter(startDate)) date else startDate, target, schedule, checkIn)
+        if (!date.isAfter(startDate)) return copy(plans = listOf(plan) + plans.drop(1).filter { it.from.isAfter(date) })
+        return copy(plans = plans.filter { it.from.isBefore(date) } + plan)
     }
 
     /** Moves the start (e.g. to enter older data); plans before the new start collapse into the first one. */

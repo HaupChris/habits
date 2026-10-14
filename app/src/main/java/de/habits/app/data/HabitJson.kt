@@ -26,6 +26,7 @@ object HabitJson {
             JSONObject().apply {
                 put("from", p.from.toString())
                 put("target", p.target)
+                if (p.checkIn) put("checkIn", true)
                 when (val s = p.schedule) {
                     is Schedule.OnDays -> put("days", JSONArray(s.days.map { it.value }.sorted()))
                     is Schedule.PerWeek -> put("perWeek", s.times)
@@ -54,6 +55,7 @@ object HabitJson {
                     target = p.getInt("target"),
                     schedule = if (p.has("perWeek")) Schedule.PerWeek(p.getInt("perWeek"))
                     else Schedule.OnDays(p.getJSONArray("days").ints().map { DayOfWeek.of(it) }.toSet()),
+                    checkIn = p.optBoolean("checkIn", false),
                 )
             },
             challenge = o.optJSONObject("challenge")?.let { Challenge(LocalDate.parse(it.getString("end")), it.getInt("threshold")) },

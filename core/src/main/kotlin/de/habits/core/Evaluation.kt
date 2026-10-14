@@ -137,9 +137,9 @@ class HabitHistory(
         val ok = habit.isOk(amount, plan)
         val outcome = when {
             date.isBefore(today) -> if (ok) Outcome.SUCCESS else Outcome.FAIL
-            date == today -> when (habit.direction) {
-                Direction.BUILD -> if (ok) Outcome.SUCCESS else Outcome.PENDING
-                Direction.QUIT -> if (ok) Outcome.PENDING else Outcome.FAIL
+            date == today -> when {
+                habit.needsAction(date) -> if (ok) Outcome.SUCCESS else Outcome.PENDING
+                else -> if (ok) Outcome.PENDING else Outcome.FAIL
             }
             else -> Outcome.PENDING
         }
@@ -168,7 +168,8 @@ class HabitHistory(
                 Period(days.first(), days.last(), weekly = true, outcome = outcome, done = hits, required = required)
             }
             Direction.QUIT -> {
-                val slips = elapsed.count { !habit.isOk(amount(it), plan) }
+                // In check-in mode today isn't a slip yet just because it hasn't been ticked off.
+                val slips = elapsed.count { !habit.isOk(amount(it), plan) && (!plan.checkIn || it.isBefore(today)) }
                 val outcome = when {
                     slips > required -> Outcome.FAIL
                     over -> Outcome.SUCCESS

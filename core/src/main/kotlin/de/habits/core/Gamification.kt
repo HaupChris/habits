@@ -12,7 +12,7 @@ class Overview(val histories: List<HabitHistory>, val today: LocalDate) {
         for (h in histories) {
             val p = h.periodAt(date)?.takeIf { !it.weekly } ?: continue
             due++
-            if (p.outcome == Outcome.SUCCESS || (date == today && h.habit.direction == Direction.QUIT && p.outcome == Outcome.PENDING)) done++
+            if (p.outcome == Outcome.SUCCESS || (date == today && !h.habit.needsAction(date) && p.outcome == Outcome.PENDING)) done++
         }
         return done to due
     }
