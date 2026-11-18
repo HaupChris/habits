@@ -211,16 +211,35 @@ private fun MonthCalendar(history: HabitHistory, onDayClick: (LocalDate) -> Unit
                 repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
                 val weekPeriod = week.firstNotNullOfOrNull { d -> d?.let(history::periodAt)?.takeIf { it.weekly } }
                 Box(Modifier.width(12.dp), contentAlignment = Alignment.Center) {
-                    val dot = when (weekPeriod?.outcome) {
-                        Outcome.SUCCESS -> Status.success
-                        Outcome.FAIL -> Status.fail
-                        else -> null
+                    when (weekPeriod?.outcome) {
+                        Outcome.SUCCESS -> Text("✓", color = Status.success, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Outcome.FAIL -> Text("✕", color = Status.fail, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        else -> Unit
                     }
-                    if (dot != null) Box(Modifier.size(8.dp).background(dot, CircleShape))
                 }
             }
         }
+        CalendarLegend(weekly = history.periods.any { it.weekly })
         Text("Tippe auf einen Tag, um ihn nachzutragen.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CalendarLegend(weekly: Boolean) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        LegendItem(Status.success, "✓", if (weekly) "Woche geschafft" else "geschafft")
+        if (!weekly) LegendItem(Status.partial, "", "teilweise")
+        LegendItem(Status.fail, "✕", "verpasst")
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, mark: String, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.size(14.dp).background(color, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+            Text(mark, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -232,18 +251,21 @@ private fun DayCell(history: HabitHistory, date: LocalDate, color: Color, onClic
     val amount = history.amount(date)
     val editable = habit.inLifetime(date) && !date.isAfter(today)
     val ok = habit.isOk(amount, habit.planAt(date))
-    val fill: Color? = when {
-        period == null || !editable -> null
+    // Colour + symbol: ✓ done, ✕ missed/slipped, light tint = partly done.
+    val (fill, mark) = when {
+        period == null || !editable -> null to null
         period.weekly -> when {
-            habit.needsAction(date) && ok -> color.copy(alpha = 0.6f)
-            !habit.needsAction(date) && !ok -> Status.fail.copy(alpha = 0.6f)
-            else -> null
+            habit.needsAction(date) && ok -> color.copy(alpha = 0.6f) to "✓"
+            !habit.needsAction(date) && !ok -> Status.fail.copy(alpha = 0.8f) to "✕"
+            else -> null to null
         }
-        period.outcome == Outcome.SUCCESS -> Status.success
-        period.outcome == Outcome.FAIL && habit.direction == Direction.BUILD && amount > 0 -> Status.partial
-        period.outcome == Outcome.FAIL -> Status.fail
-        else -> null
+        period.outcome == Outcome.SUCCESS -> Status.success to "✓"
+        period.outcome == Outcome.FAIL && habit.direction == Direction.BUILD && amount > 0 -> Status.partial to null
+        period.outcome == Outcome.FAIL -> Status.fail to "✕"
+        else -> null to null
     }
+    // Light fills (partial) need dark text, saturated fills white text.
+    val onFill = if (fill != null && fill.alpha > 0.5f) Color.White else MaterialTheme.colorScheme.onSurface
     val shape = RoundedCornerShape(8.dp)
     var m = Modifier.fillMaxWidth().aspectRatio(1f)
     m = if (fill != null) m.background(fill, shape) else m.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (period != null && editable) 0.6f else 0.2f), shape)
@@ -254,11 +276,20 @@ private fun DayCell(history: HabitHistory, date: LocalDate, color: Color, onClic
             Text(
                 "${date.dayOfMonth}",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (fill != null) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = if (editable) 1f else 0.4f),
+                color = if (fill != null) onFill else MaterialTheme.colorScheme.onSurface.copy(alpha = if (editable) 1f else 0.4f),
             )
             if (amount > 0 && (habit.measure == Measure.COUNT || habit.planAt(date).target > 1)) {
-                Text("$amount", style = MaterialTheme.typography.labelSmall, color = if (fill != null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$amount", style = MaterialTheme.typography.labelSmall, color = if (fill != null) onFill else MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        if (mark != null) {
+            Text(
+                mark,
+                Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 3.dp),
+                color = onFill,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

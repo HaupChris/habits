@@ -26,10 +26,15 @@ fun HabitsTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = colors, content = content)
 }
 
+/**
+ * Outcome colours from the Okabe–Ito palette: blue vs. vermillion stays distinguishable with red–green colour
+ * blindness and also differs in brightness. "Partial" is a light tint of success. Calendar cells add symbols
+ * (✓ / ✕) so colour is never the only cue.
+ */
 object Status {
-    val success = Color(0xFF43A047)
-    val partial = Color(0xFFFFB300)
-    val fail = Color(0xFFE53935)
+    val success = Color(0xFF0072B2)
+    val partial = Color(0x660072B2)
+    val fail = Color(0xFFD55E00)
 }
 
 /** Per-habit accent colours, referenced by index. */
